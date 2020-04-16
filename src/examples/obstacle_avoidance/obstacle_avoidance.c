@@ -46,10 +46,12 @@
 #include <poll.h>
 #include <string.h>
 #include <math.h>
-
+#include <parameters/param.h>
 #include <uORB/uORB.h>
 #include <uORB/topics/distance_sensor.h>
 #include <uORB/topics/vehicle_attitude.h>
+
+#define PROPORTIONAL_GAIN 0.1
 
 __EXPORT int obstacle_avoidance_main(int argc, char *argv[]);
 
@@ -62,6 +64,11 @@ int obstacle_avoidance_main(int argc, char *argv[])
 
 	/* limit the update rate to 10 Hz */
 	orb_set_interval(sensor_sub_fd, 100);
+
+	/* advertise attitude topic */
+	struct vehicle_attitude_s att;
+	memset(&att, 0, sizeof(att));
+	orb_advert_t att_pub = orb_advertise(ORB_ID(vehicle_attitude), &att);
 
 
 	/* one could wait for multiple topics with this technique, just using one here */
@@ -101,7 +108,13 @@ int obstacle_avoidance_main(int argc, char *argv[])
 				orb_copy(ORB_ID(distance_sensor), sensor_sub_fd, &raw);
 				PX4_INFO("Accelerometer:\t%8.4f",
 					 (double)raw.current_distance);
+				if ((double)raw.current_distance <= param_find("MPC_COL_PREV_D")) {
+					att.q[0] = -PROPORTIONAL_GAIN*(double)raw.current_distance;
+					att.q[1] = 0;
+					att.q[2] = 0;
 
+					orb_publish(ORB_ID(vehicle_attitude), att_pub, &att);
+				}
 			}
 
 			/* there could be more file descriptors here, in the form like:
