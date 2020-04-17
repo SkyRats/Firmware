@@ -50,8 +50,9 @@
 #include <uORB/uORB.h>
 #include <uORB/topics/distance_sensor.h>
 #include <uORB/topics/vehicle_attitude.h>
+#include <uORB/topics/vehicle_attitude_setpoint.h>
 
-#define PROPORTIONAL_GAIN 0.1
+#define PROPORTIONAL_GAIN 0.5
 
 __EXPORT int obstacle_avoidance_main(int argc, char *argv[]);
 
@@ -62,13 +63,15 @@ int obstacle_avoidance_main(int argc, char *argv[])
 	/* subscribe to sensor_combined topic */
 	int sensor_sub_fd = orb_subscribe(ORB_ID(distance_sensor));
 
-	/* limit the update rate to 10 Hz */
-	orb_set_interval(sensor_sub_fd, 100);
+	/* limit the update rate to 25 Hz */
+	orb_set_interval(sensor_sub_fd, 40);
 
 	/* advertise attitude topic */
-	struct vehicle_attitude_s att;
+	struct vehicle_attitude_setpoint_s att;
 	memset(&att, 0, sizeof(att));
-	orb_advert_t att_pub = orb_advertise(ORB_ID(vehicle_attitude), &att);
+	orb_advert_t att_pub = orb_advertise(ORB_ID(vehicle_attitude_setpoint), &att);
+
+
 
 
 	/* one could wait for multiple topics with this technique, just using one here */
@@ -81,9 +84,9 @@ int obstacle_avoidance_main(int argc, char *argv[])
 
 	int error_counter = 0;
 
-	for (int i = 0; i < 5; i++) {
+	for (int i=0; i<2000; i++) {
 		/* wait for sensor update of 1 file descriptor for 1000 ms (1 second) */
-		int poll_ret = px4_poll(fds, 1, 1000);
+		int poll_ret = px4_poll(fds, 1, 100);
 
 		/* handle the poll result */
 		if (poll_ret == 0) {
@@ -106,12 +109,21 @@ int obstacle_avoidance_main(int argc, char *argv[])
 				struct distance_sensor_s raw;
 				/* copy sensors raw data into local buffer */
 				orb_copy(ORB_ID(distance_sensor), sensor_sub_fd, &raw);
-				PX4_INFO("Accelerometer:\t%8.4f",
+				PX4_INFO("Distance: \t%8.4f",
 					 (double)raw.current_distance);
-				if ((double)raw.current_distance <= param_find("MPC_COL_PREV_D")) {
-					att.q[0] = -PROPORTIONAL_GAIN*(double)raw.current_distance;
-					att.q[1] = 0;
-					att.q[2] = 0;
+				//if ((double)raw.current_distance <= param_find("MPC_COL_PREV_D")) {
+				if ((double)raw.current_distance <= 0.7) {
+					if ((double)raw.current_distance <= 0.1)
+						att.q_d[0] = -PROPORTIONAL_GAIN*10;
+					else if ((double)raw.current_distance <= 0.2 && (double)raw.current_distance >= 0.2)
+						att.q_d[0] = 0;
+					else {
+						att.q_d[0] = -PROPORTIONAL_GAIN*(1.0/(double)raw.current_distance);
+						PX4_ERR("SAI DE MIM, CAIXA DESGRAÇADA");
+					}
+
+					att.q_d[1] = 0;
+					att.q_d[2] = 0;
 
 					orb_publish(ORB_ID(vehicle_attitude), att_pub, &att);
 				}
