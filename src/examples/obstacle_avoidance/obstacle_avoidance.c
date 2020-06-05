@@ -32,10 +32,10 @@
  ****************************************************************************/
 
 /**
- * @file px4_simple_app.c
- * Minimal application example for PX4 autopilot
+ * @file obstacle_avoidance.c
+ * Application for obstacle avoidance based on distance sensor readings
  *
- * @author Example User <mail@example.com>
+ * @author Caio Victor Gouveia Freitas <caiofreitas@usp.br>
  */
 
 #include <px4_platform_common/px4_config.h>
@@ -114,7 +114,7 @@ int obstacle_avoidance_main(int argc, char *argv[])
 				//if ((double)raw.current_distance <= param_find("MPC_COL_PREV_D")) {
 				if ((double)raw.current_distance <= 0.7) {
 					if ((double)raw.current_distance <= 0.1)
-						att.q_d[0] = -PROPORTIONAL_GAIN*10;
+						att.q_d[0] = -PROPORTIONAL_GAIN*10; //set negative x attitude proportional to distance
 					else if ((double)raw.current_distance <= 0.2 && (double)raw.current_distance >= 0.2)
 						att.q_d[0] = 0;
 					else {

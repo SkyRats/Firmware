@@ -1,7 +1,12 @@
 <?xml version="1.0"?>
 <launch>
+
 	<include file="$(find px4)/launch/mavros_posix_sitl.launch">
 		<arg name="vehicle" value="iris_lidar"/>
 		<!--arg name="vehicle" value="$(find px4)/Tools/sitl_gazebo/models/iris_lidar"/-->
 	</include>
+	<param name="robot_description" textfile="$(find mavlink_sitl_gazebo)/models/iris_rplidar/iris_rplidar.sdf" />
+	<node pkg="robot_state_publisher" type="robot_state_publisher" name="robot_state_publisher">
+		<param name="publish_frequency" type="double" value="30.0" />
+	</node>
 </launch>

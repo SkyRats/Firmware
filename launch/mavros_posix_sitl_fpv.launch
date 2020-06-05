@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+<launch>
+
+	<include file="$(find px4)/launch/mavros_posix_sitl.launch">
+		<arg name="vehicle" value="iris"/>
+        <arg name="sdf" value="$(find mavlink_sitl_gazebo)/models/iris_fpv_cam/iris_fpv_cam.sdf"/>
+		<!--arg name="vehicle" value="$(find px4)/Tools/sitl_gazebo/models/iris_lidar"/-->
+	</include>
+</launch>
