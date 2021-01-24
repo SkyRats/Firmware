@@ -391,6 +391,10 @@ extern "C" __EXPORT int commander_main(int argc, char *argv[])
 				send_vehicle_command(vehicle_command_s::VEHICLE_CMD_DO_SET_MODE, 1, PX4_CUSTOM_MAIN_MODE_AUTO,
 						     PX4_CUSTOM_SUB_MODE_AUTO_PRECLAND);
 
+			} else if (!strcmp(argv[2], "throw")) {
+				send_vehicle_command(vehicle_command_s::VEHICLE_CMD_DO_SET_MODE, 1, PX4_CUSTOM_MAIN_MODE_AUTO,
+						     PX4_CUSTOM_SUB_MODE_AUTO_THROW);
+
 			} else {
 				PX4_ERR("argument %s unsupported.", argv[2]);
 			}
@@ -596,6 +600,11 @@ Commander::handle_command(vehicle_status_s *status_local, const vehicle_command_
 
 						case PX4_CUSTOM_SUB_MODE_AUTO_PRECLAND:
 							main_ret = main_state_transition(*status_local, commander_state_s::MAIN_STATE_AUTO_PRECLAND, status_flags,
+											 &_internal_state);
+							break;
+
+						case PX4_CUSTOM_SUB_MODE_AUTO_THROW:
+							main_ret = main_state_transition(*status_local, commander_state_s::MAIN_STATE_THROW, status_flags,
 											 &_internal_state);
 							break;
 
@@ -1071,6 +1080,9 @@ Commander::handle_command(vehicle_status_s *status_local, const vehicle_command_
 	case vehicle_command_s::VEHICLE_CMD_DO_SET_ROI_LOCATION:
 	case vehicle_command_s::VEHICLE_CMD_DO_SET_ROI_WPNEXT_OFFSET:
 	case vehicle_command_s::VEHICLE_CMD_DO_SET_ROI_NONE:
+
+	case vehicle_command_s::VEHICLE_CMD_THROW_START:
+	case vehicle_command_s::VEHICLE_CMD_THROW_TERMINATE:
 		/* ignore commands that are handled by other parts of the system */
 		break;
 
@@ -3063,24 +3075,43 @@ Commander::update_control_mode()
 	control_mode.timestamp = hrt_absolute_time();
 
 	/* set vehicle_control_mode according to set_navigation_state */
-	control_mode.flag_armed = armed.armed;
+	//uint8 NAVIGATION_STATE_THROW_armed = armed.armed;
 	control_mode.flag_external_manual_override_ok = (status.vehicle_type == vehicle_status_s::VEHICLE_TYPE_FIXED_WING
 			&& !status.is_vtol);
 
 	switch (status.nav_state) {
+		//  THROW MODe
+	case vehicle_status_s::NAVIGATION_STATE_THROW:
+		control_mode.flag_control_throw_enabled = true;
+		control_mode.flag_control_manual_enabled = true;
+		control_mode.flag_control_auto_enabled = false;
+		control_mode.flag_control_rates_enabled = true;
+		control_mode.flag_control_attitude_enabled = false;
+		control_mode.flag_control_rattitude_enabled = false;
+		control_mode.flag_control_altitude_enabled = false;
+		control_mode.flag_control_climb_rate_enabled = false;
+		control_mode.flag_control_position_enabled = false;
+		control_mode.flag_control_velocity_enabled = false;
+		control_mode.flag_control_acceleration_enabled = false;
+		control_mode.flag_control_termination_enabled = false;
+		break;
+
 	case vehicle_status_s::NAVIGATION_STATE_MANUAL:
+		control_mode.flag_control_throw_enabled = false;
 		control_mode.flag_control_manual_enabled = true;
 		control_mode.flag_control_rates_enabled = stabilization_required();
 		control_mode.flag_control_attitude_enabled = stabilization_required();
 		break;
 
 	case vehicle_status_s::NAVIGATION_STATE_STAB:
+		control_mode.flag_control_throw_enabled = false;
 		control_mode.flag_control_manual_enabled = true;
 		control_mode.flag_control_rates_enabled = true;
 		control_mode.flag_control_attitude_enabled = true;
 		break;
 
 	case vehicle_status_s::NAVIGATION_STATE_RATTITUDE:
+		control_mode.flag_control_throw_enabled = false;
 		control_mode.flag_control_manual_enabled = true;
 		control_mode.flag_control_rates_enabled = true;
 		control_mode.flag_control_attitude_enabled = true;
@@ -3088,6 +3119,7 @@ Commander::update_control_mode()
 		break;
 
 	case vehicle_status_s::NAVIGATION_STATE_ALTCTL:
+		control_mode.flag_control_throw_enabled = false;
 		control_mode.flag_control_manual_enabled = true;
 		control_mode.flag_control_rates_enabled = true;
 		control_mode.flag_control_attitude_enabled = true;
@@ -3096,6 +3128,7 @@ Commander::update_control_mode()
 		break;
 
 	case vehicle_status_s::NAVIGATION_STATE_POSCTL:
+		control_mode.flag_control_throw_enabled = false;
 		control_mode.flag_control_manual_enabled = true;
 		control_mode.flag_control_rates_enabled = true;
 		control_mode.flag_control_attitude_enabled = true;
@@ -3117,6 +3150,7 @@ Commander::update_control_mode()
 	case vehicle_status_s::NAVIGATION_STATE_AUTO_MISSION:
 	case vehicle_status_s::NAVIGATION_STATE_AUTO_LOITER:
 	case vehicle_status_s::NAVIGATION_STATE_AUTO_TAKEOFF:
+		control_mode.flag_control_throw_enabled = false;
 		control_mode.flag_control_auto_enabled = true;
 		control_mode.flag_control_rates_enabled = true;
 		control_mode.flag_control_attitude_enabled = true;
@@ -3127,17 +3161,20 @@ Commander::update_control_mode()
 		break;
 
 	case vehicle_status_s::NAVIGATION_STATE_AUTO_LANDGPSFAIL:
+		control_mode.flag_control_throw_enabled = false;
 		control_mode.flag_control_rates_enabled = true;
 		control_mode.flag_control_attitude_enabled = true;
 		control_mode.flag_control_climb_rate_enabled = true;
 		break;
 
 	case vehicle_status_s::NAVIGATION_STATE_ACRO:
+		control_mode.flag_control_throw_enabled = false;
 		control_mode.flag_control_manual_enabled = true;
 		control_mode.flag_control_rates_enabled = true;
 		break;
 
 	case vehicle_status_s::NAVIGATION_STATE_DESCEND:
+		control_mode.flag_control_throw_enabled = false;
 		control_mode.flag_control_auto_enabled = false;
 		control_mode.flag_control_rates_enabled = true;
 		control_mode.flag_control_attitude_enabled = true;
@@ -3147,6 +3184,7 @@ Commander::update_control_mode()
 	case vehicle_status_s::NAVIGATION_STATE_TERMINATION:
 		/* disable all controllers on termination */
 		control_mode.flag_control_termination_enabled = true;
+		control_mode.flag_control_throw_enabled = false;
 		break;
 
 	case vehicle_status_s::NAVIGATION_STATE_OFFBOARD: {
@@ -3154,6 +3192,7 @@ Commander::update_control_mode()
 			const offboard_control_mode_s &offboard_control_mode = _offboard_control_mode_sub.get();
 
 			control_mode.flag_control_offboard_enabled = true;
+			control_mode.flag_control_throw_enabled = false;
 
 			/*
 			 * The control flags depend on what is ignored according to the offboard control mode topic
@@ -3202,6 +3241,7 @@ Commander::update_control_mode()
 		break;
 
 	case vehicle_status_s::NAVIGATION_STATE_ORBIT:
+		control_mode.flag_control_throw_enabled = false;
 		control_mode.flag_control_manual_enabled = false;
 		control_mode.flag_control_auto_enabled = false;
 		control_mode.flag_control_rates_enabled = true;

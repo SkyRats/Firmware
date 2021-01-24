@@ -262,6 +262,10 @@ main_state_transition(const vehicle_status_s &status, const main_state_t new_mai
 		ret = TRANSITION_CHANGED;
 		break;
 
+	//ADD THROW MODE HERE
+	case commander_state_s::MAIN_STATE_THROW:
+
+
 	case commander_state_s::MAIN_STATE_ALTCTL:
 
 		/* need at minimum altitude estimate */
@@ -416,6 +420,9 @@ bool set_nav_state(vehicle_status_s *status, actuator_armed_s *armed, commander_
 	case commander_state_s::MAIN_STATE_STAB:
 	case commander_state_s::MAIN_STATE_ALTCTL:
 
+	//THROW MODE
+	case commander_state_s::MAIN_STATE_THROW:
+
 		/* require RC for all manual modes */
 		if (rc_lost && is_armed) {
 			enable_failsafe(status, old_failsafe, mavlink_log_pub, reason_no_rc);
@@ -442,6 +449,10 @@ bool set_nav_state(vehicle_status_s *status, actuator_armed_s *armed, commander_
 
 			case commander_state_s::MAIN_STATE_ALTCTL:
 				status->nav_state = vehicle_status_s::NAVIGATION_STATE_ALTCTL;
+				break;
+
+			case commander_state_s::MAIN_STATE_THROW:
+				status->nav_state = vehicle_status_s::NAVIGATION_STATE_THROW;
 				break;
 
 			default:

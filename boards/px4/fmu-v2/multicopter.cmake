@@ -52,6 +52,7 @@ px4_add_board(
 		mc_hover_thrust_estimator
 		mc_pos_control
 		mc_rate_control
+		throw_control
 		navigator
 		rc_update
 		sensors
