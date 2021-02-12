@@ -32,6 +32,9 @@
  ****************************************************************************/
 
 #include "TFMINI.hpp"
+#include <cstdlib>
+
+
 
 TFMINI::TFMINI(const char *port, uint8_t rotation) :
 	ScheduledWorkItem(MODULE_NAME, px4::serial_port_to_wq(port)),
@@ -156,9 +159,11 @@ int
 TFMINI::collect()
 {
 	const hrt_abstime timestamp_sample = hrt_absolute_time();
-
+	int distancia = 0;
 	//PEGAR A LEITURA DO TFMINI DA ODROID
-	distancia = system("~/tfmini/tfmini_odroidxu4.py");
+
+	distancia = system("python ~/tfmini/tfmini_odroidxu4.py");
+	
 
 	// publish most recent valid measurement from buffer
 	_px4_rangefinder.update(timestamp_sample, distancia);

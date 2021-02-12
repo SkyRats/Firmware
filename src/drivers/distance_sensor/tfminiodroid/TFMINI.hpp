@@ -56,6 +56,9 @@
 
 #include "tfmini_parser.h"
 
+#include "/usr/include/c++/7/stdlib.h"
+#include <unistd.h>
+
 #define TFMINI_DEFAULT_PORT	"/dev/ttyS3"
 
 using namespace time_literals;
